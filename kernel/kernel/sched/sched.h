@@ -467,6 +467,12 @@ struct rt_rq {
 #endif
 };
 
+
+struct wrr_rq {
+	atomic_t total_weight;
+	struct list_head wrr_task_list;
+};
+
 /* Deadline class' related fields in a runqueue */
 struct dl_rq {
 	/* runqueue is an rbtree, ordered by deadline */
@@ -599,6 +605,7 @@ struct rq {
 	struct cfs_rq cfs;
 	struct rt_rq rt;
 	struct dl_rq dl;
+	struct wrr_rq wrr;
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	/* list of leaf cfs_rq on this cpu: */

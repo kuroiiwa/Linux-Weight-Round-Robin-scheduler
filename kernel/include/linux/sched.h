@@ -1301,6 +1301,13 @@ struct sched_rt_entity {
 #endif
 };
 
+struct sched_wrr_entity {
+	int 			wrr_weight;
+	struct list_head 	wrr_task_list;
+	u64			exec_start;
+	u64			sum_exec_runtime;
+}
+
 struct sched_dl_entity {
 	struct rb_node	rb_node;
 
@@ -1411,6 +1418,7 @@ struct task_struct {
 	const struct sched_class *sched_class;
 	struct sched_entity se;
 	struct sched_rt_entity rt;
+	struct sched_wrr_entity wrr;
 #ifdef CONFIG_CGROUP_SCHED
 	struct task_group *sched_task_group;
 #endif
