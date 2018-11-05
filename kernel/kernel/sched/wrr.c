@@ -1,6 +1,11 @@
 #include "sched.h"
+/*
+ * for get_cpu()
+ */
+#include "linux/smp.h"
 
 #define BASE_WRR_TIMESLICE = (100 * HZ) / 10000);
+
 
 static inline struct task_struct *wrr_task_of(struct sched_wrr_entity *wrr)
 {
@@ -125,10 +130,37 @@ static void put_prev_task_wrr(struct rq *rq, struct task_struct *prev)
         prev->wrr.exec_start = 0;
 }
 
+#ifdef CONFIG_SMP
 static int
 select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 {
+    int cpu;
+    int min_cpu;
+    int min_cpu_weight;
+    int this_cpu_weight;
+
+    rcu_read_lock();
+
+    /*
+     * get this cpu's total weight and suppose it is min
+     */
+    min_cpu_weight = this_rq()->wrr->total_weight;
+    min_cpu = get_cpu();
+
+    for_each_online_cpu(cpu) {
+        struct wrr_rq *wrr_rq = &cpu_rq(cpu)->wrr;
+        this_cpu_weight = wrr_rq->total_weight;
+        if (this_cpu_weight < min_cpu_weight) {
+            min_cpu_weight = this_cpu_weight;
+            min_cpu = cpu;
+        }
+    }
+
+    rcu_read_unlock();
+
+    return min_cpu;
 }
+#endif
 
 static void set_curr_task_wrr(struct rq *rq)
 {
