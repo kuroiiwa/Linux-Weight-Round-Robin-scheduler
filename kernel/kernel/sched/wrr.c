@@ -4,8 +4,6 @@
  */
 #include "linux/smp.h"
 
-#define BASE_WRR_TIMESLICE = (100 * HZ) / 10000);
-
 
 static inline struct task_struct *wrr_task_of(struct sched_wrr_entity *wrr)
 {
@@ -61,13 +59,10 @@ static void watchdog(struct rq *rq, struct task_struct *p)
 	if (soft != RLIM_INFINITY) {
 		unsigned long next;
 
-		if (p->rt.watchdog_stamp != jiffies) {
-			p->rt.timeout++;
-			p->rt.watchdog_stamp = jiffies;
-		}
+		p->wrr.timeout++;
 
 		next = DIV_ROUND_UP(min(soft, hard), USEC_PER_SEC/HZ);
-		if (p->rt.timeout > next)
+		if (p->wrr.timeout > next)
 			p->cputime_expires.sched_exp = p->se.sum_exec_runtime;
 	}
 }

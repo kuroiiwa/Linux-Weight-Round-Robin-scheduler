@@ -183,6 +183,10 @@ extern struct task_group root_task_group;
 # define INIT_KASAN(tsk)
 #endif
 
+#define BASE_WRR_TIMESLICE (100 * HZ) / 10000
+#define DEFAULT_WRR_WEIGHT 10
+#define DEFAULT_WRR_TIMESLICE (100 * HZ) / 1000
+
 /*
  *  INIT_TASK is used to set up the first task table, touch at
  * your own risk!. Base=0, limit=0x1fffff (=2MB)
@@ -196,7 +200,7 @@ extern struct task_group root_task_group;
 	.prio		= MAX_PRIO-20,					\
 	.static_prio	= MAX_PRIO-20,					\
 	.normal_prio	= MAX_PRIO-20,					\
-	.policy		= SCHED_NORMAL,					\
+	.policy		= SCHED_WRR,					\
 	.cpus_allowed	= CPU_MASK_ALL,					\
 	.nr_cpus_allowed= NR_CPUS,					\
 	.mm		= NULL,						\
@@ -210,6 +214,11 @@ extern struct task_group root_task_group;
 	.rt		= {						\
 		.run_list	= LIST_HEAD_INIT(tsk.rt.run_list),	\
 		.time_slice	= RR_TIMESLICE,				\
+	},								\
+	.wrr		= {						\
+		.wrr_weight	= DEFAULT_WRR_WEIGHT,			\
+		.time_slice	= DEFAULT_WRR_TIMESLICE,		\
+		.wrr_task_list 	= LIST_HEAD_INIT(tsk.wrr.wrr_task_list),\
 	},								\
 	.tasks		= LIST_HEAD_INIT(tsk.tasks),			\
 	INIT_PUSHABLE_TASKS(tsk)					\
