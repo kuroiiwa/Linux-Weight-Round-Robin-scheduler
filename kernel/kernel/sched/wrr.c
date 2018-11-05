@@ -1,6 +1,6 @@
 #include "sched.h"
 
-unsigned int sched_wrr_time_slice = 10000UL;
+#define BASE_WRR_TIMESLICE = (100 * HZ) / 10000);
 
 static inline struct task_struct *wrr_task_of(struct sched_wrr_entity *wrr)
 {
@@ -20,6 +20,14 @@ enqueue_wrr_entity(struct rq *rq, struct sched_wrr_entity *wrr_se, bool head)
         atomic_add(&wrr_se.wrr_weight, &rq->wrr_rq.total_weight);
 }
 
+static void
+dequeue_wrr_entity(struct rq *rq, struct sched_wrr_entity *wrr_se)
+{
+        list_del_init(&wrr_se.wrr_task_list);
+        atomic_dec(&wrr_se.wrr_weight, &rq->wrr_rq.total_weight);
+        --rq->wrr.rt_nr_running;
+}
+
 static struct sched_wrr_entity *
 pick_next_wrr_entity(struct wrr_rq *wrr)
 {
@@ -34,6 +42,29 @@ void init_wrr_rq(struct wrr_rq *wrr_rq)
 {
         atomic_set(&wrr_rq->total_weight, 0);
         INIT_LIST_HEAD(&wrr_rq->wrr_task_list);
+        wrr_rq->wrr_nr_running = 0;
+}
+
+static void watchdog(struct rq *rq, struct task_struct *p)
+{
+	unsigned long soft, hard;
+
+	/* max may change after cur was read, this will be fixed next tick */
+	soft = task_rlimit(p, RLIMIT_RTTIME);
+	hard = task_rlimit_max(p, RLIMIT_RTTIME);
+
+	if (soft != RLIM_INFINITY) {
+		unsigned long next;
+
+		if (p->rt.watchdog_stamp != jiffies) {
+			p->rt.timeout++;
+			p->rt.watchdog_stamp = jiffies;
+		}
+
+		next = DIV_ROUND_UP(min(soft, hard), USEC_PER_SEC/HZ);
+		if (p->rt.timeout > next)
+			p->cputime_expires.sched_exp = p->se.sum_exec_runtime;
+	}
 }
 
 static void
@@ -44,15 +75,17 @@ enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	if (flags & ENQUEUE_WAKEUP)
 		wrr_se->timeout = 0;
 
-	enqueue_wrr_entity(wrr_se, flags & ENQUEUE_HEAD);
+        enqueue_wrr_entity(wrr_se, flags & ENQUEUE_HEAD);
         add_nr_running(rq, 1);
 }
 
 static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 {
-        list_del_init(&p->wrr.wrr_task_list);
-        atomic_dec(p->wrr.wrr_weight, &rq->wrr_rq.total_weight);
-        --rq->wrr.rt_nr_running;
+        struct sched_wrr_entity *wrr_se = &p->wrr;
+
+        update_curr_wrr(rq);
+        dequeue_wrr_entity(rq, wrr_se);
+        sub_nr_running(rq, 1);
 }
 
 static void requeue_task_wrr(struct rq *rq, struct task_struct *p)
@@ -65,6 +98,7 @@ static void yield_task_wrr(struct rq *rq)
         requeue_task_wrr(rq, rq->curr);
 }
 
+/*No preemption involved*/
 static void check_preempt_curr_wrr(struct rq *rq, struct task_struct *p, int flags)
 {
 }
@@ -87,6 +121,8 @@ pick_next_task_wrr(struct rq *rq, struct task_struct *prev)
 
 static void put_prev_task_wrr(struct rq *rq, struct task_struct *prev)
 {
+        update_curr_wrr(rq);
+        prev->wrr.exec_start = 0;
 }
 
 static int
@@ -96,12 +132,39 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 
 static void set_curr_task_wrr(struct rq *rq)
 {
+        struct task_struct *p = rq->curr;
+
+	p->se.exec_start = rq->clock_task;
 }
 
-static void task_tick_wrr(struct rq *rq, struct task_struct *curr, int queued)
+static void task_tick_wrr(struct rq *rq, struct task_struct *p, int queued)
 {
+        struct sched_wrr_entity *wrr_se = &p->wrr;
+
+	update_curr_wrr(rq);
+
+	watchdog(rq, p);
+
+        if (p->policy != SCHED_WRR)
+		return;
+
+	if (--wrr_se.time_slice)
+		return;
+
+	wrr_se.time_slice = wrr_se.weight * BASE_WRR_TIMESLICE;
+
+	/*
+	 * Requeue to the end of queue if we (and all of our ancestors) are not
+	 * the only element on the queue
+	 */
+	if (wrr_se->wrr_task_list.prev != wrr_se->wrr_task_list.next) {
+		requeue_task_rt(rq, p);
+		resched_curr(rq);
+		return;
+	}
 }
 
+/*No prio involved*/
 static void
 prio_changed_wrr(struct rq *rq, struct task_struct *p, int oldprio)
 {
@@ -109,6 +172,10 @@ prio_changed_wrr(struct rq *rq, struct task_struct *p, int oldprio)
 
 static void switched_to_wrr(struct rq *rq, struct task_struct *p)
 {
+        if (task_on_rq_queued(p) && rq->curr != p) {
+		if (p->prio < rq->curr->prio && cpu_online(cpu_of(rq)))
+			resched_curr(rq);
+	}
 }
 
 static void update_curr_wrr(struct rq *rq)
@@ -116,13 +183,24 @@ static void update_curr_wrr(struct rq *rq)
         struct task_struct *curr = rq-curr;
         u64 delta_exec;
 
-        if not policy
-        delta_exec = rq->clock - curr->wrr.exec_start;
-        if delta_exec < 0
+        if (curr->sched_class != &wrr_sched_class)
+                return;
 
+        delta_exec = rq->clock_task - curr->se.exec_start;
+        if (unlikely((s64)delta_exec <= 0))
+                delta_exec = 0;
 
+        schedstat_set(curr->se.exec_max, max(curr->se.exec_max, delta_exec))
+
+        curr->se.sum_exec_runtime += delta_exec;
+        curr->se.exec_start = rq->clock_task;
+        cpuacc_charge(curr, delta_exec);
 }
 
+static unsigned int get_rr_interval_wrr(struct rq *rq, struct task_struct *task)
+{
+	return task->wrr.weight * BASE_WRR_TIMESLICE;
+}
 
 const struct sched_class wrr_sched_class = {
 	.next			= &fair_sched_class,
@@ -142,6 +220,8 @@ const struct sched_class wrr_sched_class = {
 
 	.set_curr_task          = set_curr_task_wrr,
 	.task_tick		= task_tick_wrr,
+
+        .get_rr_interval	= get_rr_interval_wrr,
 
 	.prio_changed		= prio_changed_wrr,
 	.switched_to		= switched_to_wrr,

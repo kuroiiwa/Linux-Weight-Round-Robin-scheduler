@@ -1302,7 +1302,8 @@ struct sched_rt_entity {
 };
 
 struct sched_wrr_entity {
-	int 			wrr_weight;
+	unsigned int 		wrr_weight;
+	unsigned int		time_slice;
 	struct list_head 	wrr_task_list;
 	u64			exec_start;
 }
