@@ -1305,7 +1305,6 @@ struct sched_wrr_entity {
 	int 			wrr_weight;
 	struct list_head 	wrr_task_list;
 	u64			exec_start;
-	u64			sum_exec_runtime;
 }
 
 struct sched_dl_entity {

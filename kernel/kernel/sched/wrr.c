@@ -2,6 +2,34 @@
 
 unsigned int sched_wrr_time_slice = 10000UL;
 
+static inline struct task_struct *wrr_task_of(struct sched_wrr_entity *wrr)
+{
+	return container_of(wrr, struct task_struct, wrr);
+}
+
+static void
+enqueue_wrr_entity(struct rq *rq, struct sched_wrr_entity *wrr_se, bool head)
+{
+	struct list_head *queue = &rq->wrr_rq.wrr_task_list;
+
+	if (head)
+		list_add(&wrr_se->wrr_task_list, queue);
+	else
+		list_add_tail(&wrr_se->wrr_task_list, queue);
+	++rq->wrr.wrr_nr_running;
+        atomic_add(&wrr_se.wrr_weight, &rq->wrr_rq.total_weight);
+}
+
+static struct sched_wrr_entity *
+pick_next_wrr_entity(struct wrr_rq *wrr)
+{
+        struct sched_wrr_entity *next = NULL;
+
+        next = list_entry(wrr->wrr_task_list.next, struct sched_wrr_entity,
+                        wrr_task_list);
+        return next;
+}
+
 void init_wrr_rq(struct wrr_rq *wrr_rq)
 {
         atomic_set(&wrr_rq->total_weight, 0);
@@ -11,14 +39,20 @@ void init_wrr_rq(struct wrr_rq *wrr_rq)
 static void
 enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 {
-        list_add_tail(&p->wrr.wrr_task_list, &rq->wrr_rq.wrr_task_list);
-        atomic_add(p->wrr.wrr_weight, &rq->wrr_rq.total_weight);
+        struct sched_wrr_entity *wrr_se = &p->wrr;
+
+	if (flags & ENQUEUE_WAKEUP)
+		wrr_se->timeout = 0;
+
+	enqueue_wrr_entity(wrr_se, flags & ENQUEUE_HEAD);
+        add_nr_running(rq, 1);
 }
 
 static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 {
-        list_del(&p->wrr.wrr_task_list);
+        list_del_init(&p->wrr.wrr_task_list);
         atomic_dec(p->wrr.wrr_weight, &rq->wrr_rq.total_weight);
+        --rq->wrr.rt_nr_running;
 }
 
 static void requeue_task_wrr(struct rq *rq, struct task_struct *p)
@@ -38,7 +72,17 @@ static void check_preempt_curr_wrr(struct rq *rq, struct task_struct *p, int fla
 static struct task_struct *
 pick_next_task_wrr(struct rq *rq, struct task_struct *prev)
 {
+        struct task_struct *next = NULL;
+        struct sched_wrr_entity *next_ent = NULL;
 
+        if (list_empty(&rq->wrr.wrr_task_list))
+                return next;
+        next_ent = pick_next_wrr_entity(&rq->wrr);
+        if (!next_ent)
+                return -EFAULT;
+        next = wrr_task_of(next_ent);
+
+        return next;
 }
 
 static void put_prev_task_wrr(struct rq *rq, struct task_struct *prev)
@@ -69,6 +113,14 @@ static void switched_to_wrr(struct rq *rq, struct task_struct *p)
 
 static void update_curr_wrr(struct rq *rq)
 {
+        struct task_struct *curr = rq-curr;
+        u64 delta_exec;
+
+        if not policy
+        delta_exec = rq->clock - curr->wrr.exec_start;
+        if delta_exec < 0
+
+
 }
 
 

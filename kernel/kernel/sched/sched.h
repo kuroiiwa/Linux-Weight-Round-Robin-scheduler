@@ -470,6 +470,7 @@ struct rt_rq {
 
 struct wrr_rq {
 	atomic_t total_weight;
+	unsigned int wrr_nr_running;
 	struct list_head wrr_task_list;
 };
 
