@@ -1302,9 +1302,12 @@ struct sched_rt_entity {
 };
 
 struct sched_wrr_entity {
+	struct list_head 	wrr_task_list;
+	unsigned long 		timeout;
 	unsigned int 		wrr_weight;
 	unsigned int		time_slice;
-	struct list_head 	wrr_task_list;
+
+	struct sched_rt_entity *back;
 }
 
 struct sched_dl_entity {
