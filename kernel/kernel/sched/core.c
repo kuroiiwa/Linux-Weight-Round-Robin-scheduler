@@ -74,6 +74,7 @@
 #include <linux/binfmts.h>
 #include <linux/context_tracking.h>
 #include <linux/compiler.h>
+#include <linux/wrr_info.h>
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
@@ -8689,4 +8690,49 @@ void dump_cpu_task(int cpu)
 {
 	pr_info("Task dump for CPU %d:\n", cpu);
 	sched_show_task(cpu_curr(cpu));
+}
+
+SYSCALL_DEFINE1(get_wrr_info, struct wrr_info __user *, info)
+{
+	struct wrr_info *k_info;
+	k_info = kmalloc(sizeof(struct wrr_info), GFP_KERNEL);
+	if (!k_info)
+		return -ENOMEM;
+
+	unsigned long i = 0;
+	int num_cpus = 0;
+
+	for_each_online_cpu(i) {
+		struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
+		k_info->nr_running[i] = wrr_rq->wrr_nr_running;
+		k_info->total_weight[i] = wrr_rq->total_weight;
+		++num_cpus;
+	}
+	k_info->num_cpus = num_cpus;
+
+	if (copy_to_user(info, k_info, sizeof(struct wrr_info))) {
+		kfree(k_info);
+		return -EFAULT;
+	}
+
+	return num_cpus;
+}
+
+SYSCALL_DEFINE1(set_wrr_weight, int __user, weight)
+{
+	uid_t uid = getuid();
+
+	/* Only root user can change the weight */
+	if (uid != 0)
+		return -EPERM;
+
+	int k_weight;
+	if (copy_from_user(&k_weight, &weight, sizeof(int))
+		return -EFAULT;
+	if (k_weight < 1)
+		return -EINVAL;
+
+	/* @TODO: Change DEFAULT_WRR_WEIGHT here */
+
+	return 0;
 }
