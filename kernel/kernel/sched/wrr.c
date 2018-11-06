@@ -318,8 +318,8 @@ static int idle_balance(struct rq *this_rq)
 		/*
 		 * get the max weight cpu
 		 */
-		if (max_weight < wrr_rq->total_weight) {
-			max_weight = wrr_rq->total_weight;
+		if (max_weight < atomic_read(&wrr_rq->total_weight)) {
+			max_weight = atomic_read(&wrr_rq->total_weight);
 			max_weight_cpu = temp_cpu;
 		}
 
