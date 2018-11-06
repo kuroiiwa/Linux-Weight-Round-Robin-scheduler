@@ -123,7 +123,7 @@ pick_next_task_wrr(struct rq *rq, struct task_struct *prev)
 		if (!next)
 			return NULL;
 
-		next>se.exec_start = rq->clock;
+		next->se.exec_start = rq->clock;
         return next;
 }
 
@@ -215,7 +215,7 @@ static void switched_to_wrr(struct rq *rq, struct task_struct *p)
 
 static void update_curr_wrr(struct rq *rq)
 {
-        struct task_struct *curr = rq-curr;
+        struct task_struct *curr = rq->curr;
         u64 delta_exec;
 
         if (curr->sched_class != &wrr_sched_class)
@@ -225,11 +225,14 @@ static void update_curr_wrr(struct rq *rq)
         if (unlikely((s64)delta_exec <= 0))
                 delta_exec = 0;
 
-        schedstat_set(curr->se.exec_max, max(curr->se.exec_max, delta_exec))
+		schedstat_set(curr->se.statistics.exec_max,
+					  max(curr->se.statistics.exec_max, delta_exec));
 
-        curr->se.sum_exec_runtime += delta_exec;
-        curr->se.exec_start = rq->clock_task;
-        cpuacc_charge(curr, delta_exec);
+		curr->se.sum_exec_runtime += delta_exec;
+		account_group_exec_runtime(curr, delta_exec);
+
+		curr->se.exec_start = rq->clock_task;
+		cpuacct_charge(curr, delta_exec);
 }
 
 static unsigned int get_rr_interval_wrr(struct rq *rq, struct task_struct *task)
