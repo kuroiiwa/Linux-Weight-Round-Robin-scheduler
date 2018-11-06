@@ -1306,9 +1306,8 @@ struct sched_wrr_entity {
 	unsigned long 		timeout;
 	unsigned int 		wrr_weight;
 	unsigned int		time_slice;
-
 	struct sched_rt_entity *back;
-}
+};
 
 struct sched_dl_entity {
 	struct rb_node	rb_node;

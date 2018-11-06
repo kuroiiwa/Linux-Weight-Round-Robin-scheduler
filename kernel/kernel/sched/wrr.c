@@ -1,9 +1,11 @@
 #include "sched.h"
+#include "linux/init_task.h"
 /*
  * for get_cpu()
  */
 #include "linux/smp.h"
 
+const struct sched_class wrr_sched_class;
 
 static inline struct task_struct *wrr_task_of(struct sched_wrr_entity *wrr)
 {
@@ -26,7 +28,7 @@ enqueue_wrr_entity(struct rq *rq, struct sched_wrr_entity *wrr_se, bool head)
 static void
 dequeue_wrr_entity(struct rq *rq, struct sched_wrr_entity *wrr_se)
 {
-        list_del_init(&wrr_se.wrr_task_list);
+        list_del_init(&wrr_se->wrr_task_list);
         atomic_sub(wrr_se->wrr_weight, &rq->wrr.total_weight);
         --rq->wrr.wrr_nr_running;
 }
@@ -67,6 +69,26 @@ static void watchdog(struct rq *rq, struct task_struct *p)
 	}
 }
 
+static void update_curr_wrr(struct rq *rq)
+{
+        struct task_struct *curr = rq->curr;
+        u64 delta_exec;
+
+        if (curr->sched_class != &wrr_sched_class)
+                return;
+
+        delta_exec = rq->clock_task - curr->se.exec_start;
+        if (unlikely((s64)delta_exec <= 0))
+                delta_exec = 0;
+
+        schedstat_set(curr->se.statistics.exec_max,
+                        max(curr->se.statistics.exec_max, delta_exec));
+
+        curr->se.sum_exec_runtime += delta_exec;
+        curr->se.exec_start = rq->clock_task;
+        cpuacct_charge(curr, delta_exec);
+}
+
 static void
 enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 {
@@ -75,7 +97,7 @@ enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	if (flags & ENQUEUE_WAKEUP)
 		wrr_se->timeout = 0;
 
-        enqueue_wrr_entity(wrr_se, flags & ENQUEUE_HEAD);
+        enqueue_wrr_entity(rq, wrr_se, flags & ENQUEUE_HEAD);
         add_nr_running(rq, 1);
 }
 
@@ -115,24 +137,24 @@ pick_next_task_wrr(struct rq *rq, struct task_struct *prev)
         next_ent = list_first_entry(&rq->wrr.wrr_task_list,
         		struct sched_wrr_entity, wrr_task_list);
         next = wrr_task_of(next_ent);
-		if (!next)
-			return NULL;
+	if (!next)
+		return NULL;
 
-		next>se.exec_start = rq->clock;
+	next->se.exec_start = rq->clock;
         return next;
 }
 
 static void put_prev_task_wrr(struct rq *rq, struct task_struct *prev)
 {
         update_curr_wrr(rq);
-        prev->wrr.exec_start = 0;
+        prev->se.exec_start = 0;
 }
 
 #ifdef CONFIG_SMP
 static int
 select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 {
-    int cpu;
+    int i;
     int min_cpu;
     int min_cpu_weight;
     int this_cpu_weight;
@@ -142,15 +164,15 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
     /*
      * get this cpu's total weight and suppose it is min
      */
-    min_cpu_weight = this_rq()->wrr->total_weight;
+    min_cpu_weight = atomic_read(&this_rq()->wrr.total_weight);
     min_cpu = get_cpu();
 
-    for_each_online_cpu(cpu) {
+    for_each_online_cpu(i) {
         struct wrr_rq *wrr_rq = &cpu_rq(cpu)->wrr;
-        this_cpu_weight = wrr_rq->total_weight;
+        this_cpu_weight = atomic_read(&wrr_rq->total_weight);
         if (this_cpu_weight < min_cpu_weight) {
             min_cpu_weight = this_cpu_weight;
-            min_cpu = cpu;
+            min_cpu = i;
         }
     }
 
@@ -178,17 +200,17 @@ static void task_tick_wrr(struct rq *rq, struct task_struct *p, int queued)
 	if (p->policy != SCHED_WRR)
 		return;
 
-	if (--wrr_se.time_slice)
+	if (--wrr_se->time_slice)
 		return;
 
-	wrr_se.time_slice = wrr_se.weight * BASE_WRR_TIMESLICE;
+	wrr_se->time_slice = wrr_se->wrr_weight * BASE_WRR_TIMESLICE;
 
 	/*
 	 * Requeue to the end of queue if we (and all of our ancestors) are not
 	 * the only element on the queue
 	 */
 	if (wrr_se->wrr_task_list.prev != wrr_se->wrr_task_list.next) {
-		requeue_task_rt(rq, p);
+		requeue_task_wrr(rq, p);
 		resched_curr(rq);
 		return;
 	}
@@ -208,28 +230,10 @@ static void switched_to_wrr(struct rq *rq, struct task_struct *p)
 	}
 }
 
-static void update_curr_wrr(struct rq *rq)
-{
-        struct task_struct *curr = rq-curr;
-        u64 delta_exec;
-
-        if (curr->sched_class != &wrr_sched_class)
-                return;
-
-        delta_exec = rq->clock_task - curr->se.exec_start;
-        if (unlikely((s64)delta_exec <= 0))
-                delta_exec = 0;
-
-        schedstat_set(curr->se.exec_max, max(curr->se.exec_max, delta_exec))
-
-        curr->se.sum_exec_runtime += delta_exec;
-        curr->se.exec_start = rq->clock_task;
-        cpuacc_charge(curr, delta_exec);
-}
 
 static unsigned int get_rr_interval_wrr(struct rq *rq, struct task_struct *task)
 {
-	return task->wrr.weight * BASE_WRR_TIMESLICE;
+	return task->wrr.wrr_weight * BASE_WRR_TIMESLICE;
 }
 
 const struct sched_class wrr_sched_class = {
