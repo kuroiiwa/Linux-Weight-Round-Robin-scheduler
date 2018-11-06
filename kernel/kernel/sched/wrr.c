@@ -98,7 +98,6 @@ enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	if (flags & ENQUEUE_WAKEUP)
 		wrr_se->timeout = 0;
 
-	printk("Enqueuing\n");
         enqueue_wrr_entity(rq, wrr_se, flags & ENQUEUE_HEAD);
         add_nr_running(rq, 1);
 }
@@ -108,7 +107,6 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
         struct sched_wrr_entity *wrr_se = &p->wrr;
 
         update_curr_wrr(rq);
-	printk("Dequeuing\n");
         dequeue_wrr_entity(rq, wrr_se);
         sub_nr_running(rq, 1);
 }
@@ -137,7 +135,6 @@ pick_next_task_wrr(struct rq *rq, struct task_struct *prev)
         if (!rq->wrr.wrr_nr_running)
                 return NULL;
 
-	printk("Picking\n");
         next_ent = list_first_entry(&rq->wrr.wrr_task_list,
         		struct sched_wrr_entity, wrr_task_list);
         next = wrr_task_of(next_ent);
@@ -165,20 +162,13 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 
 	rcu_read_lock();
 
-<<<<<<< HEAD
     /*
      * get this cpu's total weight and suppose it is min
      */
-=======
-	/*
-	* get this cpu's total weight and suppose it is min
-	*/
->>>>>>> origin/kaige
 	min_cpu_weight = atomic_read(&this_rq()->wrr.total_weight);
 	min_cpu = get_cpu();
 
 	for_each_online_cpu(i) {
-<<<<<<< HEAD
 		struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
 		this_cpu_weight = atomic_read(&wrr_rq->total_weight);
 	        if (this_cpu_weight < min_cpu_weight) {
@@ -188,19 +178,7 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 	    }
 	rcu_read_unlock();
 
-	printk("chosen cpu: %d\n", min_cpu);
-=======
-		struct wrr_rq *wrr_rq = &cpu_rq(cpu)->wrr;
-		this_cpu_weight = atomic_read(&wrr_rq->total_weight);
-		if (this_cpu_weight < min_cpu_weight) {
-		    min_cpu_weight = this_cpu_weight;
-		    min_cpu = i;
-		}
-	}
-
-	rcu_read_unlock();
-
->>>>>>> origin/kaige
+	trace_printk("chosen cpu: %d", min_cpu);
 	return min_cpu;
 }
 #endif
@@ -289,7 +267,7 @@ const struct sched_class wrr_sched_class = {
 /*
  * helper to check if the task can be remove from one cpu
  */
-static int
+/*static int
 can_migrate_task(struct task_struct *p, struct rq *src_rq, struct rq *tst_rq)
 {
 	if (!cpumask_test_cpu(tst_rq->cpu, tsk_cpus_allowed(p)))
@@ -318,37 +296,37 @@ static int idle_balance(struct rq *this_rq)
 	struct sched_wrr_entity *wrr_se;
 
 	rcu_read_lock();
-
+*/
 	/*
 	 * idle_cpu is from core.c
 	 */
-	for_each_online_cpu(temp_cpu) {
+/*	for_each_online_cpu(temp_cpu) {
 		struct rq *temp_rq = cpu_rq(temp_cpu);
 		struct wrr_rq *wrr_rq = &temp_rq->wrr;
-
+*/
 		/*
 		 * get a idle cpu
 		 */
-		if (idle_cpu(temp_cpu)) {
+/*		if (idle_cpu(temp_cpu)) {
 			last_idle_cpu = temp_cpu;
 			idle_cpu_number ++;
 		}
 
-		/*
+*/		/*
 		 * get the max weight cpu
 		 */
-		if (max_weight < wrr_rq->total_weight) {
+/*		if (max_weight < wrr_rq->total_weight) {
 			max_weight = wrr_rq->total_weight;
 			max_weight_cpu = temp_cpu;
 		}
 
 		cpu_number++;
 	}
-
+*/
 	/*
 	 * some check constrains
 	 */
-	struct rq *max_rq = cpu_rq(max_weight_cpu);
+/*	struct rq *max_rq = cpu_rq(max_weight_cpu);
 	struct rq *idle_rq = cpu_rq(last_idle_cpu);
 	struct wrr_rq *max_wrr_rq = &max_rq->wrr;
 
@@ -366,12 +344,12 @@ static int idle_balance(struct rq *this_rq)
 		if (!can_migrate_task()) {
 			continue;
 		}
-
+*/
 		/*
 		 * move_queued_task is from core.c
 		 */
-		move_queued_task(max_rq, temp_task_struct, last_idle_cpu);
+/*		move_queued_task(max_rq, temp_task_struct, last_idle_cpu);
 		break;
 	}
 
-}
+}*/
