@@ -2145,6 +2145,10 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 
 	INIT_LIST_HEAD(&p->rt.run_list);
 
+	INIT_LIST_HEAD(&p->wrr.wrr_task_list);
+	p->wrr.wrr_weight = DEFAULT_WRR_WEIGHT;
+	p->wrr.time_slice = DEFAULT_WRR_TIMESLICE;
+
 #ifdef CONFIG_PREEMPT_NOTIFIERS
 	INIT_HLIST_HEAD(&p->preempt_notifiers);
 #endif
@@ -2233,13 +2237,17 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	 */
 	if (unlikely(p->sched_reset_on_fork)) {
 		if (task_has_dl_policy(p) || task_has_rt_policy(p)) {
+			p->policy = SCHED_WRR;
+			/*
 			p->policy = SCHED_NORMAL;
 			p->static_prio = NICE_TO_PRIO(0);
 			p->rt_priority = 0;
+			*/
 		} else if (PRIO_TO_NICE(p->static_prio) < 0)
 			p->static_prio = NICE_TO_PRIO(0);
 
-		p->prio = p->normal_prio = __normal_prio(p);
+		/*p->prio = p->normal_prio = __normal_prio(p);*/
+
 		set_load_weight(p);
 
 		/*
@@ -2254,6 +2262,8 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 		return -EAGAIN;
 	} else if (rt_prio(p->prio)) {
 		p->sched_class = &rt_sched_class;
+	} else if (p->policy == SCHED_WRR) {
+		p->sched_class = &wrr_sched_class;
 	} else {
 		p->sched_class = &fair_sched_class;
 	}
