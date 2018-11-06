@@ -28,7 +28,7 @@ enqueue_wrr_entity(struct rq *rq, struct sched_wrr_entity *wrr_se, bool head)
 static void
 dequeue_wrr_entity(struct rq *rq, struct sched_wrr_entity *wrr_se)
 {
-        list_del_init(&wrr_se.wrr_task_list);
+        list_del_init(&wrr_se->wrr_task_list);
         atomic_sub(wrr_se->wrr_weight, &rq->wrr.total_weight);
         --rq->wrr.wrr_nr_running;
 }
@@ -120,10 +120,10 @@ pick_next_task_wrr(struct rq *rq, struct task_struct *prev)
         next_ent = list_first_entry(&rq->wrr.wrr_task_list,
         		struct sched_wrr_entity, wrr_task_list);
         next = wrr_task_of(next_ent);
-		if (!next)
-			return NULL;
+	if (!next)
+		return NULL;
 
-		next->se.exec_start = rq->clock;
+	next->se.exec_start = rq->clock;
         return next;
 }
 
@@ -137,37 +137,37 @@ static void put_prev_task_wrr(struct rq *rq, struct task_struct *prev)
 static int
 select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 {
-    int cpu;
-    int min_cpu;
-    int min_cpu_weight;
-    int this_cpu_weight;
+	int cpu;
+	int min_cpu;
+	int min_cpu_weight;
+	int this_cpu_weight;
 
-    rcu_read_lock();
+	rcu_read_lock();
 
-    /*
-     * get this cpu's total weight and suppose it is min
-     */
-    min_cpu_weight = this_rq()->wrr->total_weight;
-    min_cpu = get_cpu();
+	/*
+	* get this cpu's total weight and suppose it is min
+	*/
+	min_cpu_weight = this_rq()->wrr->total_weight;
+	min_cpu = get_cpu();
 
-    for_each_online_cpu(cpu) {
-        struct wrr_rq *wrr_rq = &cpu_rq(cpu)->wrr;
-        this_cpu_weight = wrr_rq->total_weight;
-        if (this_cpu_weight < min_cpu_weight) {
-            min_cpu_weight = this_cpu_weight;
-            min_cpu = cpu;
-        }
-    }
+	for_each_online_cpu(cpu) {
+		struct wrr_rq *wrr_rq = &cpu_rq(cpu)->wrr;
+		this_cpu_weight = wrr_rq->total_weight;
+		if (this_cpu_weight < min_cpu_weight) {
+		    min_cpu_weight = this_cpu_weight;
+		    min_cpu = cpu;
+		}
+	}
 
-    rcu_read_unlock();
+	rcu_read_unlock();
 
-    return min_cpu;
+	return min_cpu;
 }
 #endif
 
 static void set_curr_task_wrr(struct rq *rq)
 {
-        struct task_struct *p = rq->curr;
+	struct task_struct *p = rq->curr;
 
 	p->se.exec_start = rq->clock_task;
 }
@@ -225,14 +225,14 @@ static void update_curr_wrr(struct rq *rq)
         if (unlikely((s64)delta_exec <= 0))
                 delta_exec = 0;
 
-		schedstat_set(curr->se.statistics.exec_max,
-					  max(curr->se.statistics.exec_max, delta_exec));
+	schedstat_set(curr->se.statistics.exec_max,
+				  max(curr->se.statistics.exec_max, delta_exec));
 
-		curr->se.sum_exec_runtime += delta_exec;
-		account_group_exec_runtime(curr, delta_exec);
+	curr->se.sum_exec_runtime += delta_exec;
+	account_group_exec_runtime(curr, delta_exec);
 
-		curr->se.exec_start = rq->clock_task;
-		cpuacct_charge(curr, delta_exec);
+	curr->se.exec_start = rq->clock_task;
+	cpuacct_charge(curr, delta_exec);
 }
 
 static unsigned int get_rr_interval_wrr(struct rq *rq, struct task_struct *task)
