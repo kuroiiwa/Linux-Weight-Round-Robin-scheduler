@@ -165,31 +165,13 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 
 	rcu_read_lock();
 
-<<<<<<< HEAD
-    /*
-     * get this cpu's total weight and suppose it is min
-     */
-=======
 	/*
 	* get this cpu's total weight and suppose it is min
 	*/
->>>>>>> origin/kaige
 	min_cpu_weight = atomic_read(&this_rq()->wrr.total_weight);
 	min_cpu = get_cpu();
 
 	for_each_online_cpu(i) {
-<<<<<<< HEAD
-		struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
-		this_cpu_weight = atomic_read(&wrr_rq->total_weight);
-	        if (this_cpu_weight < min_cpu_weight) {
-	            min_cpu_weight = this_cpu_weight;
-	            min_cpu = i;
-	        }
-	    }
-	rcu_read_unlock();
-
-	printk("chosen cpu: %d\n", min_cpu);
-=======
 		struct wrr_rq *wrr_rq = &cpu_rq(cpu)->wrr;
 		this_cpu_weight = atomic_read(&wrr_rq->total_weight);
 		if (this_cpu_weight < min_cpu_weight) {
@@ -200,7 +182,6 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 
 	rcu_read_unlock();
 
->>>>>>> origin/kaige
 	return min_cpu;
 }
 #endif
@@ -373,5 +354,4 @@ static int idle_balance(struct rq *this_rq)
 		move_queued_task(max_rq, temp_task_struct, last_idle_cpu);
 		break;
 	}
-
 }
