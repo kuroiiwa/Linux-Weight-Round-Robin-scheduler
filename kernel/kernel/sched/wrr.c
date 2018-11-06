@@ -4,6 +4,7 @@
  * for get_cpu()
  */
 #include "linux/smp.h"
+#include <linux/kernel.h>
 
 const struct sched_class wrr_sched_class;
 
@@ -97,6 +98,7 @@ enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	if (flags & ENQUEUE_WAKEUP)
 		wrr_se->timeout = 0;
 
+	printk("Enqueuing\n");
         enqueue_wrr_entity(rq, wrr_se, flags & ENQUEUE_HEAD);
         add_nr_running(rq, 1);
 }
@@ -106,6 +108,7 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
         struct sched_wrr_entity *wrr_se = &p->wrr;
 
         update_curr_wrr(rq);
+	printk("Dequeuing\n");
         dequeue_wrr_entity(rq, wrr_se);
         sub_nr_running(rq, 1);
 }
@@ -134,6 +137,7 @@ pick_next_task_wrr(struct rq *rq, struct task_struct *prev)
         if (!rq->wrr.wrr_nr_running)
                 return NULL;
 
+	printk("Picking\n");
         next_ent = list_first_entry(&rq->wrr.wrr_task_list,
         		struct sched_wrr_entity, wrr_task_list);
         next = wrr_task_of(next_ent);
@@ -154,31 +158,31 @@ static void put_prev_task_wrr(struct rq *rq, struct task_struct *prev)
 static int
 select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 {
-    int i;
-    int min_cpu;
-    int min_cpu_weight;
-    int this_cpu_weight;
+	int i;
+	int min_cpu;
+	int min_cpu_weight;
+	int this_cpu_weight;
 
-    rcu_read_lock();
+	rcu_read_lock();
 
     /*
      * get this cpu's total weight and suppose it is min
      */
-    min_cpu_weight = atomic_read(&this_rq()->wrr.total_weight);
-    min_cpu = get_cpu();
+	min_cpu_weight = atomic_read(&this_rq()->wrr.total_weight);
+	min_cpu = get_cpu();
 
-    for_each_online_cpu(i) {
-        struct wrr_rq *wrr_rq = &cpu_rq(cpu)->wrr;
-        this_cpu_weight = atomic_read(&wrr_rq->total_weight);
-        if (this_cpu_weight < min_cpu_weight) {
-            min_cpu_weight = this_cpu_weight;
-            min_cpu = i;
-        }
-    }
+	for_each_online_cpu(i) {
+		struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
+		this_cpu_weight = atomic_read(&wrr_rq->total_weight);
+	        if (this_cpu_weight < min_cpu_weight) {
+	            min_cpu_weight = this_cpu_weight;
+	            min_cpu = i;
+	        }
+	    }
+	rcu_read_unlock();
 
-    rcu_read_unlock();
-
-    return min_cpu;
+	printk("chosen cpu: %d\n", min_cpu);
+	return min_cpu;
 }
 #endif
 
