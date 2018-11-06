@@ -184,7 +184,7 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 
 static void set_curr_task_wrr(struct rq *rq)
 {
-        struct task_struct *p = rq->curr;
+	struct task_struct *p = rq->curr;
 
 	p->se.exec_start = rq->clock_task;
 }
