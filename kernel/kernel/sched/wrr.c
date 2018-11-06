@@ -23,30 +23,20 @@ enqueue_wrr_entity(struct rq *rq, struct sched_wrr_entity *wrr_se, bool head)
 	else
 		list_add_tail(&wrr_se->wrr_task_list, queue);
 	++rq->wrr.wrr_nr_running;
-        atomic_add(wrr_se->wrr_weight, &rq->wrr.total_weight);
+	rq->wrr.total_weight += wrr_se->wrr_weight;
 }
 
 static void
 dequeue_wrr_entity(struct rq *rq, struct sched_wrr_entity *wrr_se)
 {
         list_del_init(&wrr_se->wrr_task_list);
-        atomic_sub(wrr_se->wrr_weight, &rq->wrr.total_weight);
+	rq->wrr.total_weight -= wrr_se->wrr_weight;
         --rq->wrr.wrr_nr_running;
-}
-
-static struct sched_wrr_entity *
-pick_next_wrr_entity(struct wrr_rq *wrr)
-{
-        struct sched_wrr_entity *next = NULL;
-
-        next = list_entry(wrr->wrr_task_list.next, struct sched_wrr_entity,
-                        wrr_task_list);
-        return next;
 }
 
 void init_wrr_rq(struct wrr_rq *wrr_rq)
 {
-        atomic_set(&wrr_rq->total_weight, 0);
+	wrr_rq->total_weight = 0;
         INIT_LIST_HEAD(&wrr_rq->wrr_task_list);
         wrr_rq->wrr_nr_running = 0;
 }
@@ -113,6 +103,8 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 
 static void requeue_task_wrr(struct rq *rq, struct task_struct *p)
 {
+	if (rq->wrr.wrr_nr_running == 1)
+		return;
 	list_move_tail(&p->wrr.wrr_task_list, &rq->wrr.wrr_task_list);
 }
 
@@ -141,7 +133,7 @@ pick_next_task_wrr(struct rq *rq, struct task_struct *prev)
 	if (!next)
 		return NULL;
 
-	next->se.exec_start = rq->clock;
+	next->se.exec_start = rq->clock_task;
         return next;
 }
 
@@ -160,17 +152,19 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 	int min_cpu_weight;
 	int this_cpu_weight;
 
+	printk("choosing cpu\n");
 	rcu_read_lock();
 
-    /*
-     * get this cpu's total weight and suppose it is min
-     */
-	min_cpu_weight = atomic_read(&this_rq()->wrr.total_weight);
+	/*
+	* get this cpu's total weight and suppose it is min
+	*/
+	min_cpu_weight = this_rq()->wrr.total_weight;
 	min_cpu = get_cpu();
 
 	for_each_online_cpu(i) {
 		struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
-		this_cpu_weight = atomic_read(&wrr_rq->total_weight);
+		this_cpu_weight = wrr_rq->total_weight;
+		printk("cpu_%d: %d\n", i, this_cpu_weight);
 	        if (this_cpu_weight < min_cpu_weight) {
 	            min_cpu_weight = this_cpu_weight;
 	            min_cpu = i;
@@ -178,7 +172,7 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 	    }
 	rcu_read_unlock();
 
-	trace_printk("chosen cpu: %d", min_cpu);
+	printk("chosen cpu: %d\n", min_cpu);
 	return min_cpu;
 }
 #endif
@@ -225,14 +219,16 @@ prio_changed_wrr(struct rq *rq, struct task_struct *p, int oldprio)
 
 static void switched_to_wrr(struct rq *rq, struct task_struct *p)
 {
-        if (task_on_rq_queued(p) && rq->curr != p) {
-		if (p->prio < rq->curr->prio && cpu_online(cpu_of(rq)))
-			resched_curr(rq);
+        if (task_on_rq_queued(p)) {
+		rq->wrr.total_weight -= p->wrr.wrr_weight;
+		rq->wrr.total_weight += DEFAULT_WRR_WEIGHT;
+ 		p->wrr.wrr_weight = DEFAULT_WRR_WEIGHT;
 	}
 }
 
 
-static unsigned int get_rr_interval_wrr(struct rq *rq, struct task_struct *task)
+static unsigned int
+get_rr_interval_wrr(struct rq *rq, struct task_struct *task)
 {
 	return task->wrr.wrr_weight * BASE_WRR_TIMESLICE;
 }
@@ -250,7 +246,7 @@ const struct sched_class wrr_sched_class = {
 
 #ifdef CONFIG_SMP
 	.select_task_rq		= select_task_rq_wrr,
-	.set_cpus_allowed       = set_cpus_allowed_common,
+//	.set_cpus_allowed       = set_cpus_allowed_common,
 #endif
 
 	.set_curr_task          = set_curr_task_wrr,

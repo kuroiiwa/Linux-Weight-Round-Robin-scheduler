@@ -3,8 +3,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 
-#define MAX_CPUS 2 /* We will be testing only on the VMs */
+#define MAX_CPUS 6 /* We will be testing only on the VMs */
 #define __NR_get_wrr_info 326
 #define __NR_setscheduler 144
 
@@ -31,7 +32,7 @@ int main(int argc, char **argv)
 	res = syscall(__NR_get_wrr_info, &info);
         if (res) {
                 printf("num_cpus: %d\n", info.num_cpus);
-                for (int i = 0; i < MAX_CPUS; i++) {
+                for (int i = 0; i < info.num_cpus; i++) {
                         printf("CPU_%d: %d %d\n", i, info.nr_running[i],
                                                 info.total_weight[i]);
                 }

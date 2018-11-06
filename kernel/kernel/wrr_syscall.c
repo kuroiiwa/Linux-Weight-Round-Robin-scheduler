@@ -19,6 +19,7 @@ SYSCALL_DEFINE1(get_wrr_info, struct wrr_info __user *, info)
         int i;
 
         kinfo.num_cpus = 0;
+        rcu_read_lock();
         for_each_online_cpu(i) {
             struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
             kinfo.nr_running[kinfo.num_cpus] = wrr_rq->wrr_nr_running;
@@ -26,6 +27,7 @@ SYSCALL_DEFINE1(get_wrr_info, struct wrr_info __user *, info)
                         atomic_read(&wrr_rq->total_weight);
             kinfo.num_cpus++;
         }
+        rcu_read_unlock();
         if (copy_to_user(info, &kinfo, sizeof(struct wrr_info)))
 		return -EFAULT;
         return 1;
