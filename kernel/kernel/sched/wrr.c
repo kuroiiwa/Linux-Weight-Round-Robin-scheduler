@@ -91,7 +91,6 @@ enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 
 	if (!list_empty(&wrr_se->wrr_task_list))
 		return;
-	printk("enqueuing\n");
         enqueue_wrr_entity(rq, wrr_se, flags & ENQUEUE_HEAD);
         add_nr_running(rq, 1);
 }
@@ -101,7 +100,6 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
         struct sched_wrr_entity *wrr_se = &p->wrr;
 
         update_curr_wrr(rq);
-	printk("dequeuing\n");
         dequeue_wrr_entity(rq, wrr_se);
         sub_nr_running(rq, 1);
 }
@@ -111,7 +109,6 @@ static void requeue_task_wrr(struct rq *rq, struct task_struct *p, int head)
 	struct sched_wrr_entity *wrr_se = &p->wrr;
 	struct list_head *queue = &(rq->wrr.wrr_task_list);
 
-	printk("requeuing\n");
 	if (head)
 		list_move(&wrr_se->wrr_task_list, queue);
 	else
@@ -162,7 +159,6 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 	int min_cpu_weight;
 	int this_cpu_weight;
 
-	//return 0;
 	rcu_read_lock();
 
 	/*
@@ -229,9 +225,14 @@ static void switched_to_wrr(struct rq *rq, struct task_struct *p)
 {
 	struct sched_wrr_entity *wrr_se = &p->wrr;
 
-	printk("Switched\n");
 	wrr_se->wrr_weight = DEFAULT_WRR_WEIGHT;
 	wrr_se->time_slice = wrr_se->wrr_weight * BASE_WRR_TIMESLICE;
+	/*
+	printk("Switched\n");
+	if (p->on_rq && rq->curr != p)
+		if (rq == task_rq(p) && !rt_task(rq->curr))
+			resched_curr(rq);
+			*/
 }
 
 
@@ -254,6 +255,7 @@ const struct sched_class wrr_sched_class = {
 
 #ifdef CONFIG_SMP
 	.select_task_rq		= select_task_rq_wrr,
+	.set_cpus_allowed	= set_cpus_allowed_common,
 #endif
 
 	.set_curr_task          = set_curr_task_wrr,
@@ -315,13 +317,13 @@ void wrr_pull_task(int dst_cpu)
 			continue;
 
 		if (p->on_rq) {
+			printk("cpu_%d pulled from cpu_%d", dst_cpu, src_cpu);
 			deactivate_task(src_rq, p, 0);
 			set_task_cpu(p, dst_cpu);
 			activate_task(dst_rq, p, 0);
 			check_preempt_curr(dst_rq, p, 0);
 
 			double_rq_unlock(dst_rq, src_rq);
-			printk("%d pulled\n", dst_cpu);
 			return;
 		}
 	}
