@@ -264,12 +264,11 @@ void print_dl_rq(struct seq_file *m, int cpu, struct dl_rq *dl_rq)
 
 void print_wrr_rq(struct seq_file *m, int cpu, struct wrr_rq *wrr_rq)
 {
-
-        SEQ_printf(m, "\nwrr_rq[%d]:\n", cpu);
+	SEQ_printf(m, "\nwrr_rq[%d]:\n", cpu);
 #define P(x) \
-        SEQ_printf(m, "  .%-30s: %Ld\n", #x, (long long)(wrr_rq->x))
+	SEQ_printf(m, "  .%-30s: %Ld\n", #x, (long long)(wrr_rq->x))
 #define PN(x) \
-        SEQ_printf(m, "  .%-30s: %Ld.%06ld\n", #x, SPLIT_NS(wrr_rq->x))
+	SEQ_printf(m, "  .%-30s: %Ld.%06ld\n", #x, SPLIT_NS(wrr_rq->x))
 
 	P(wrr_nr_running);
 	P(total_weight);
