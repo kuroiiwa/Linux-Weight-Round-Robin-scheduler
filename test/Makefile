@@ -3,10 +3,14 @@ CC := gcc
 ########## YOUR MAKEFILE BELOW ##########
 CFLAGS := -g -O2 -Wall -Werror
 
-testme: test.c
-	$(CC) $(CFLAGS) -o testme test.c
+all: test gen_proc
 
-.PHONY: clean
+test: test.c
+	$(CC) $(CFLAGS) -o test test.c 
+
+gen_proc: gen_proc.c
+	$(CC) $(CFLAGS) -o gen_proc gen_proc.c 
 
 clean:
-	rm -f testme
+	rm -f test gen_proc
+.PHONY: clean
