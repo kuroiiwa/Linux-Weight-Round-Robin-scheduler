@@ -1726,6 +1726,7 @@ extern void print_rt_stats(struct seq_file *m, int cpu);
 extern void print_dl_stats(struct seq_file *m, int cpu);
 extern void
 print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq);
+extern void print_wrr_stats(struct seq_file *m, int cpu);
 
 #ifdef CONFIG_NUMA_BALANCING
 extern void

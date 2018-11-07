@@ -419,3 +419,21 @@ static int idle_balance(struct rq *this_rq)
 	}
 
 }*/
+
+#ifdef CONFIG_SCHED_DEBUG
+extern void print_wrr_rq(struct seq_file *m, int cpu, struct wrr_rq *wrr_rq);
+
+void print_wrr_stats(struct seq_file *m, int cpu)
+{
+	struct wrr_rq *wrr_rq;
+	struct rq *temp_rq;
+
+	rcu_read_lock();
+
+	temp_rq = cpu_rq(cpu);
+	wrr_rq = &temp_rq->wrr;
+	print_wrr_rq(m, cpu, wrr_rq);
+
+	rcu_read_unlock();
+}
+#endif /* CONFIG_SCHED_DEBUG */
