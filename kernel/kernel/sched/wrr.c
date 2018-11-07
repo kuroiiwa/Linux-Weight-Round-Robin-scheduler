@@ -13,7 +13,7 @@ static inline struct task_struct *wrr_task_of(struct sched_wrr_entity *wrr)
 	return container_of(wrr, struct task_struct, wrr);
 }
 
-static void
+	static void
 enqueue_wrr_entity(struct rq *rq, struct sched_wrr_entity *wrr_se, bool head)
 {
 	struct list_head *queue = &rq->wrr.wrr_task_list;
@@ -26,7 +26,7 @@ enqueue_wrr_entity(struct rq *rq, struct sched_wrr_entity *wrr_se, bool head)
 	rq->wrr.total_weight += wrr_se->wrr_weight;
 }
 
-static void
+	static void
 dequeue_wrr_entity(struct rq *rq, struct sched_wrr_entity *wrr_se)
 {
 	list_del_init(&wrr_se->wrr_task_list);
@@ -73,7 +73,7 @@ static void update_curr_wrr(struct rq *rq)
 		delta_exec = 0;
 
 	schedstat_set(curr->se.statistics.exec_max,
-		max(curr->se.statistics.exec_max, delta_exec));
+			max(curr->se.statistics.exec_max, delta_exec));
 
 	curr->se.sum_exec_runtime += delta_exec;
 	account_group_exec_runtime(curr, delta_exec);
@@ -81,7 +81,7 @@ static void update_curr_wrr(struct rq *rq)
 	cpuacct_charge(curr, delta_exec);
 }
 
-static void
+	static void
 enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 {
 	struct sched_wrr_entity *wrr_se = &p->wrr;
@@ -121,12 +121,12 @@ static void yield_task_wrr(struct rq *rq)
 }
 
 /*No preemption involved*/
-static void
+	static void
 check_preempt_curr_wrr(struct rq *rq, struct task_struct *p, int flags)
 {
 }
 
-static struct task_struct *
+	static struct task_struct *
 pick_next_task_wrr(struct rq *rq, struct task_struct *prev)
 {
 	struct task_struct *next;
@@ -152,7 +152,7 @@ static void put_prev_task_wrr(struct rq *rq, struct task_struct *prev)
 }
 
 #ifdef CONFIG_SMP
-static int
+	static int
 select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 {
 	int i;
@@ -218,7 +218,7 @@ static void task_tick_wrr(struct rq *rq, struct task_struct *p, int queued)
 }
 
 /*No prio involved*/
-static void
+	static void
 prio_changed_wrr(struct rq *rq, struct task_struct *p, int oldprio)
 {
 }
@@ -232,7 +232,7 @@ static void switched_to_wrr(struct rq *rq, struct task_struct *p)
 }
 
 
-static unsigned int
+	static unsigned int
 get_rr_interval_wrr(struct rq *rq, struct task_struct *task)
 {
 	return task->wrr.wrr_weight * BASE_WRR_TIMESLICE;
@@ -308,8 +308,8 @@ void wrr_pull_task(int dst_cpu)
 		p = list_entry(wrr_se, struct task_struct, wrr);
 
 		if (task_running(src_rq, p) ||
-		p->policy != SCHED_WRR ||
-		!cpumask_test_cpu(dst_cpu, tsk_cpus_allowed(p)))
+				p->policy != SCHED_WRR ||
+				!cpumask_test_cpu(dst_cpu, tsk_cpus_allowed(p)))
 			continue;
 
 		if (p->on_rq) {
@@ -325,3 +325,21 @@ void wrr_pull_task(int dst_cpu)
 	double_rq_unlock(dst_rq, src_rq);
 }
 #endif
+
+#ifdef CONFIG_SCHED_DEBUG
+extern void print_wrr_rq(struct seq_file *m, int cpu, struct wrr_rq *wrr_rq);
+
+void print_wrr_stats(struct seq_file *m, int cpu)
+{
+	struct wrr_rq *wrr_rq;
+	struct rq *temp_rq;
+
+	rcu_read_lock();
+
+	temp_rq = cpu_rq(cpu);
+	wrr_rq = &temp_rq->wrr;
+	print_wrr_rq(m, cpu, wrr_rq);
+
+	rcu_read_unlock();
+}
+#endif /* CONFIG_SCHED_DEBUG */
