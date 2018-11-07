@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 
 		if (pid == 0) {
 			while (1) {
-				if (n == 50000000){
+				if (n == 50000000) {
 					printf("CPU BOUND Process%d\n", pid);
 					i++;
 					n = 0;
