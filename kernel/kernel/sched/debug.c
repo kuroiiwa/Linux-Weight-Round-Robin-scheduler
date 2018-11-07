@@ -264,6 +264,7 @@ void print_dl_rq(struct seq_file *m, int cpu, struct dl_rq *dl_rq)
 
 void print_wrr_rq(struct seq_file *m, int cpu, struct wrr_rq *wrr_rq)
 {
+
         SEQ_printf(m, "\nwrr_rq[%d]:\n", cpu);
 #define P(x) \
         SEQ_printf(m, "  .%-30s: %Ld\n", #x, (long long)(wrr_rq->x))
