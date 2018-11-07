@@ -1276,6 +1276,8 @@ extern const struct sched_class wrr_sched_class;
 
 #ifdef CONFIG_SMP
 
+extern void wrr_pull_task(int dst_cpu);
+
 extern void update_group_capacity(struct sched_domain *sd, int cpu);
 
 extern void trigger_load_balance(struct rq *rq);
