@@ -326,19 +326,19 @@ void wrr_pull_task(int dst_cpu)
 }
 #endif
 #ifdef CONFIG_SCHED_DEBUG
- extern void print_wrr_rq(struct seq_file *m, int cpu, struct wrr_rq *wrr_rq);
+extern void print_wrr_rq(struct seq_file *m, int cpu, struct wrr_rq *wrr_rq);
 
- void print_wrr_stats(struct seq_file *m, int cpu)
- {
- 	struct wrr_rq *wrr_rq;
- 	struct rq *temp_rq;
+void print_wrr_stats(struct seq_file *m, int cpu)
+{
+	struct wrr_rq *wrr_rq;
+	struct rq *temp_rq;
 
- 	rcu_read_lock();
+	rcu_read_lock();
 
- 	temp_rq = cpu_rq(cpu);
- 	wrr_rq = &temp_rq->wrr;
- 	print_wrr_rq(m, cpu, wrr_rq);
+	temp_rq = cpu_rq(cpu);
+	wrr_rq = &temp_rq->wrr;
+	print_wrr_rq(m, cpu, wrr_rq);
 
- 	rcu_read_unlock();
- }
- #endif /* CONFIG_SCHED_DEBUG */
+	rcu_read_unlock();
+}
+#endif /* CONFIG_SCHED_DEBUG */
