@@ -170,6 +170,7 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 
 	for_each_online_cpu(i) {
 		struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
+
 		this_cpu_weight = wrr_rq->total_weight;
 		if (this_cpu_weight < min_cpu_weight) {
 			min_cpu_weight = this_cpu_weight;
@@ -307,12 +308,11 @@ void wrr_pull_task(int dst_cpu)
 		p = list_entry(wrr_se, struct task_struct, wrr);
 
 		if (task_running(src_rq, p) ||
-			p->policy != SCHED_WRR ||
-			!cpumask_test_cpu(dst_cpu, tsk_cpus_allowed(p)))
-				continue;
+		p->policy != SCHED_WRR ||
+		!cpumask_test_cpu(dst_cpu, tsk_cpus_allowed(p)))
+			continue;
 
 		if (p->on_rq) {
-			/*printk("cpu_%d pulled from cpu_%d\n", dst_cpu, src_cpu);*/
 			deactivate_task(src_rq, p, 0);
 			set_task_cpu(p, dst_cpu);
 			activate_task(dst_rq, p, 0);

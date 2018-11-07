@@ -183,9 +183,9 @@ extern struct task_group root_task_group;
 # define INIT_KASAN(tsk)
 #endif
 
-#define BASE_WRR_TIMESLICE (10 * HZ) / 1000
+#define BASE_WRR_TIMESLICE ((10 * HZ) / 1000)
 #define DEFAULT_WRR_WEIGHT 10
-#define DEFAULT_WRR_TIMESLICE (100 * HZ) / 1000
+#define DEFAULT_WRR_TIMESLICE ((100 * HZ) / 1000)
 
 /*
  *  INIT_TASK is used to set up the first task table, touch at
@@ -218,7 +218,7 @@ extern struct task_group root_task_group;
 	.wrr		= {						\
 		.wrr_weight	= DEFAULT_WRR_WEIGHT,			\
 		.time_slice	= DEFAULT_WRR_TIMESLICE,		\
-		.wrr_task_list 	= LIST_HEAD_INIT(tsk.wrr.wrr_task_list),\
+		.wrr_task_list	= LIST_HEAD_INIT(tsk.wrr.wrr_task_list),\
 	},								\
 	.tasks		= LIST_HEAD_INIT(tsk.tasks),			\
 	INIT_PUSHABLE_TASKS(tsk)					\

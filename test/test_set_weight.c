@@ -32,13 +32,13 @@ int main(int argc, char **argv)
 	syscall(__NR_setscheduler, pid, 7, &param);
 	syscall(__NR_set_wrr_weight, 20);
 	res = syscall(__NR_get_wrr_info, &info);
-        if (!res) {
-                printf("num_cpus: %d\n", info.num_cpus);
-                for (int i = 0; i < info.num_cpus; i++) {
-                        printf("CPU_%d: %d %d\n", i, info.nr_running[i],
-                                                info.total_weight[i]);
-                }
-        }
+	if (!res) {
+		printf("num_cpus: %d\n", info.num_cpus);
+		for (int i = 0; i < info.num_cpus; i++) {
+			printf("CPU_%d: %d %d\n", i, info.nr_running[i],
+				info.total_weight[i]);
+		}
+	}
 
 
 	return 0;
