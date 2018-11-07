@@ -8728,8 +8728,8 @@ SYSCALL_DEFINE1(set_wrr_weight, int, weight)
 	unsigned long flags;
 	struct rq *rq;
 	int curr_weight;
-
 	struct task_struct *p = current;
+
 	if (!uid_eq(current_uid(), GLOBAL_ROOT_UID))
 		return -EACCES;
 	if (weight < 1)
@@ -8742,7 +8742,6 @@ SYSCALL_DEFINE1(set_wrr_weight, int, weight)
 	curr_weight = p->wrr.wrr_weight;
 	p->wrr.wrr_weight = weight;
 	rq->wrr.total_weight += weight - curr_weight;
-	printk("set success");
 
 
 	task_rq_unlock(rq, p, &flags);
