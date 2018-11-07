@@ -8695,12 +8695,13 @@ void dump_cpu_task(int cpu)
 SYSCALL_DEFINE1(get_wrr_info, struct wrr_info __user *, info)
 {
 	struct wrr_info *k_info;
+	unsigned long i = 0;
+	int num_cpus = 0;
+
 	k_info = kmalloc(sizeof(struct wrr_info), GFP_KERNEL);
 	if (!k_info)
 		return -ENOMEM;
 
-	unsigned long i = 0;
-	int num_cpus = 0;
 
 	for_each_online_cpu(i) {
 		struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
@@ -8720,14 +8721,13 @@ SYSCALL_DEFINE1(get_wrr_info, struct wrr_info __user *, info)
 
 SYSCALL_DEFINE1(set_wrr_weight, int __user, weight)
 {
-	uid_t uid = getuid();
+	int k_weight;
 
 	/* Only root user can change the weight */
-	if (uid != 0)
+	if (current_cred()->uid.val != 0)
 		return -EPERM;
 
-	int k_weight;
-	if (copy_from_user(&k_weight, &weight, sizeof(int))
+	if (copy_from_user(&k_weight, &weight, sizeof(int)))
 		return -EFAULT;
 	if (k_weight < 1)
 		return -EINVAL;
