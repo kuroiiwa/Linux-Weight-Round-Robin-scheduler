@@ -333,6 +333,7 @@
 324	common	membarrier		sys_membarrier
 325	common	mlock2			sys_mlock2
 326     common  get_wrr_info            sys_get_wrr_info
+327     common  set_wrr_weight          sys_set_wrr_weight
 
 #
 # x32-specific system call numbers start at 512 to avoid cache impact
