@@ -5,9 +5,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#define __NR_setscheduler 144
 #define MAX_CPUS 6 /* We will be testing only on the VMs */
 #define __NR_get_wrr_info 326
-#define __NR_setscheduler 144
+#define CHILD_PROC 1
 
 
 struct wrr_info {
@@ -18,17 +19,10 @@ struct wrr_info {
 struct sched_param {
 	int sched_priority;
 };
-
-int main(int argc, char **argv)
-{
+void call(){
 	struct wrr_info info;
-	struct sched_param param;
 	int res;
-	pid_t pid;
 
-	pid = getpid();
-	param.sched_priority = 0;
-	syscall(__NR_setscheduler, pid, 7, &param);
 	res = syscall(__NR_get_wrr_info, &info);
         if (res) {
                 printf("num_cpus: %d\n", info.num_cpus);
@@ -37,5 +31,23 @@ int main(int argc, char **argv)
                                                 info.total_weight[i]);
                 }
         }
+}
+int main(int argc, char **argv)
+{
+	struct sched_param param;
+	pid_t pid;
+	//int count = 0;
+
+	param.sched_priority = 0;
+	//pid = fork();
+	pid = getpid();
+	printf("IP: %d\n", pid);
+        syscall(__NR_setscheduler, pid, 7, &param);
+	usleep(1000000);
+	while (1) {
+		//printf("%d", count++);
+		//usleep(1000000);
+		//call();
+	}
 	return 0;
 }

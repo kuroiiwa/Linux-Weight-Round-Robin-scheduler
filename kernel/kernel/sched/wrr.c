@@ -229,6 +229,7 @@ static void switched_to_wrr(struct rq *rq, struct task_struct *p)
 {
 	struct sched_wrr_entity *wrr_se = &p->wrr;
 
+	printk("Switched\n");
 	wrr_se->wrr_weight = DEFAULT_WRR_WEIGHT;
 	wrr_se->time_slice = wrr_se->wrr_weight * BASE_WRR_TIMESLICE;
 }
@@ -270,49 +271,61 @@ const struct sched_class wrr_sched_class = {
 void wrr_pull_task(int dst_cpu)
 {
 	int src_cpu;
+	int i;
 	struct rq *dst_rq =cpu_rq(dst_cpu);
 	struct rq *src_rq;
 	struct task_struct *p;
 	struct sched_wrr_entity *wrr_se;
+	int max_wrr_weight;
 
 	if(!cpu_active(dst_cpu))
 		return;
 
-	for_each_online_cpu(src_cpu) {
-		if (src_cpu == dst_cpu)
-			goto next_cpu;
+	src_cpu = -1;
+	max_wrr_weight = 0;
+	for_each_online_cpu(i) {
+		if (i == dst_cpu)
+			continue;
 
-		src_rq = cpu_rq(src_cpu);
+		src_rq = cpu_rq(i);
 		double_rq_lock(dst_rq, src_rq);
 		if (src_rq->wrr.wrr_nr_running <= 1) {
 			double_rq_unlock(dst_rq, src_rq);
-			goto next_cpu;
+			continue;
 		}
-
-		list_for_each_entry(wrr_se, &src_rq->wrr.wrr_task_list,
-				wrr_task_list) {
-			p = list_entry(wrr_se, struct task_struct, wrr);
-
-			if (task_running(src_rq, p) ||
-			    p->policy != SCHED_WRR ||
-		    	    !cpumask_test_cpu(dst_cpu, tsk_cpus_allowed(p)))
-				continue;
-
-			if (p->on_rq) {
-				deactivate_task(src_rq, p, 0);
-				set_task_cpu(p, dst_cpu);
-				activate_task(dst_rq, p, 0);
-				check_preempt_curr(dst_rq, p, 0);
-
-				double_rq_unlock(dst_rq, src_rq);
-				printk("%d pulled\n", dst_cpu);
-				return;
-			}
+		if (max_wrr_weight < src_rq->wrr.total_weight) {
+			src_cpu = i;
+			max_wrr_weight = src_rq->wrr.total_weight;
 		}
 		double_rq_unlock(dst_rq, src_rq);
-next_cpu:
-		continue;
 	}
+	if (src_cpu == -1)
+		return;
+	/*Found the adequate src_cpu*/
+	src_rq = cpu_rq(src_cpu);
+	double_rq_lock(dst_rq, src_rq);
+	/*Iterate each process to find the task to be pulled*/
+	list_for_each_entry(wrr_se, &src_rq->wrr.wrr_task_list,
+			wrr_task_list) {
+		p = list_entry(wrr_se, struct task_struct, wrr);
+
+		if (task_running(src_rq, p) ||
+			p->policy != SCHED_WRR ||
+			!cpumask_test_cpu(dst_cpu, tsk_cpus_allowed(p)))
+			continue;
+
+		if (p->on_rq) {
+			deactivate_task(src_rq, p, 0);
+			set_task_cpu(p, dst_cpu);
+			activate_task(dst_rq, p, 0);
+			check_preempt_curr(dst_rq, p, 0);
+
+			double_rq_unlock(dst_rq, src_rq);
+			printk("%d pulled\n", dst_cpu);
+			return;
+		}
+	}
+	double_rq_unlock(dst_rq, src_rq);
 }
 #endif
 /*
