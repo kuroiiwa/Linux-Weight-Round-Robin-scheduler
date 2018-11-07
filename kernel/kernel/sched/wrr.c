@@ -76,6 +76,7 @@ static void update_curr_wrr(struct rq *rq)
                         max(curr->se.statistics.exec_max, delta_exec));
 
         curr->se.sum_exec_runtime += delta_exec;
+	account_group_exec_runtime(curr, delta_exec);
         curr->se.exec_start = rq->clock_task;
         cpuacct_charge(curr, delta_exec);
 }
@@ -88,6 +89,9 @@ enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	if (flags & ENQUEUE_WAKEUP)
 		wrr_se->timeout = 0;
 
+	if (!list_empty(&wrr_se->wrr_task_list))
+		return;
+	printk("enqueuing\n");
         enqueue_wrr_entity(rq, wrr_se, flags & ENQUEUE_HEAD);
         add_nr_running(rq, 1);
 }
@@ -97,20 +101,26 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
         struct sched_wrr_entity *wrr_se = &p->wrr;
 
         update_curr_wrr(rq);
+	printk("dequeuing\n");
         dequeue_wrr_entity(rq, wrr_se);
         sub_nr_running(rq, 1);
 }
 
-static void requeue_task_wrr(struct rq *rq, struct task_struct *p)
+static void requeue_task_wrr(struct rq *rq, struct task_struct *p, int head)
 {
-	if (rq->wrr.wrr_nr_running == 1)
-		return;
-	list_move_tail(&p->wrr.wrr_task_list, &rq->wrr.wrr_task_list);
+	struct sched_wrr_entity *wrr_se = &p->wrr;
+	struct list_head *queue = &(rq->wrr.wrr_task_list);
+
+	printk("requeuing\n");
+	if (head)
+		list_move(&wrr_se->wrr_task_list, queue);
+	else
+		list_move_tail(&wrr_se->wrr_task_list, queue);
 }
 
 static void yield_task_wrr(struct rq *rq)
 {
-        requeue_task_wrr(rq, rq->curr);
+        requeue_task_wrr(rq, rq->curr, 0);
 }
 
 /*No preemption involved*/
@@ -153,6 +163,7 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 	int this_cpu_weight;
 
 	printk("choosing cpu\n");
+	//return 0;
 	rcu_read_lock();
 
 	/*
@@ -204,11 +215,10 @@ static void task_tick_wrr(struct rq *rq, struct task_struct *p, int queued)
 	 * Requeue to the end of queue if we (and all of our ancestors) are not
 	 * the only element on the queue
 	 */
-	 
+
 	if (wrr_se->wrr_task_list.prev != wrr_se->wrr_task_list.next) {
-		requeue_task_wrr(rq, p);
+		requeue_task_wrr(rq, p, 0);
 		resched_curr(rq);
-		return;
 	}
 }
 
@@ -220,11 +230,10 @@ prio_changed_wrr(struct rq *rq, struct task_struct *p, int oldprio)
 
 static void switched_to_wrr(struct rq *rq, struct task_struct *p)
 {
-        if (task_on_rq_queued(p)) {
-		rq->wrr.total_weight -= p->wrr.wrr_weight;
-		rq->wrr.total_weight += DEFAULT_WRR_WEIGHT;
- 		p->wrr.wrr_weight = DEFAULT_WRR_WEIGHT;
-	}
+	struct sched_wrr_entity *wrr_se = &p->wrr;
+
+	wrr_se->wrr_weight = DEFAULT_WRR_WEIGHT;
+	wrr_se->time_slice = wrr_se->wrr_weight * BASE_WRR_TIMESLICE;
 }
 
 
@@ -247,7 +256,6 @@ const struct sched_class wrr_sched_class = {
 
 #ifdef CONFIG_SMP
 	.select_task_rq		= select_task_rq_wrr,
-//	.set_cpus_allowed       = set_cpus_allowed_common,
 #endif
 
 	.set_curr_task          = set_curr_task_wrr,

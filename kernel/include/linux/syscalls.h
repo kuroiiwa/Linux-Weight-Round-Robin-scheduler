@@ -893,3 +893,5 @@ asmlinkage long sys_mlock2(unsigned long start, size_t len, int flags);
 #endif
 
 asmlinkage long sys_get_wrr_info(struct wrr_info __user *info);
+
+asmlinkage long sys_set_wrr_weight(int __user weight);

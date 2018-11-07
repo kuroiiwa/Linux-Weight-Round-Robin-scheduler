@@ -14,7 +14,6 @@ struct wrr_info;
 
 SYSCALL_DEFINE1(get_wrr_info, struct wrr_info __user *, info)
 {
-        struct task_struct *p = current;
         struct wrr_info kinfo;
         int i;
 
@@ -23,8 +22,7 @@ SYSCALL_DEFINE1(get_wrr_info, struct wrr_info __user *, info)
         for_each_online_cpu(i) {
             struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
             kinfo.nr_running[kinfo.num_cpus] = wrr_rq->wrr_nr_running;
-            kinfo.total_weight[kinfo.num_cpus] =
-                        atomic_read(&wrr_rq->total_weight);
+            kinfo.total_weight[kinfo.num_cpus] = wrr_rq->total_weight;
             kinfo.num_cpus++;
         }
         rcu_read_unlock();

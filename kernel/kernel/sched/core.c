@@ -74,6 +74,7 @@
 #include <linux/binfmts.h>
 #include <linux/context_tracking.h>
 #include <linux/compiler.h>
+#include <linux/wrr_info.h>
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
@@ -2237,12 +2238,12 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	 */
 	if (unlikely(p->sched_reset_on_fork)) {
 		if (task_has_dl_policy(p) || task_has_rt_policy(p)) {
-			/*p->policy = SCHED_WRR;*/
-
+			p->policy = SCHED_WRR;
+			/*
 			p->policy = SCHED_NORMAL;
 			p->static_prio = NICE_TO_PRIO(0);
 			p->rt_priority = 0;
-
+			*/
 		} else if (PRIO_TO_NICE(p->static_prio) < 0)
 			p->static_prio = NICE_TO_PRIO(0);
 
@@ -3461,6 +3462,8 @@ void rt_mutex_setprio(struct task_struct *p, int prio)
 		if (oldprio < prio)
 			enqueue_flag |= ENQUEUE_HEAD;
 		p->sched_class = &rt_sched_class;
+	} else if (p->policy == SCHED_WRR) {
+		p->sched_class = &wrr_sched_class;
 	} else {
 		if (dl_prio(oldprio))
 			p->dl.dl_boosted = 0;
@@ -7587,6 +7590,7 @@ void __init sched_init(void)
 	 * During early bootup we pretend to be a normal task:
 	 */
 	current->sched_class = &fair_sched_class;
+	//current->sched_class = &wrr_sched_class;
 
 	/*
 	 * Make us the idle thread. Technically, schedule() should not be
@@ -8689,4 +8693,49 @@ void dump_cpu_task(int cpu)
 {
 	pr_info("Task dump for CPU %d:\n", cpu);
 	sched_show_task(cpu_curr(cpu));
+}
+
+SYSCALL_DEFINE1(get_wrr_info, struct wrr_info __user *, info)
+{
+	struct wrr_info *k_info;
+	k_info = kmalloc(sizeof(struct wrr_info), GFP_KERNEL);
+	if (!k_info)
+		return -ENOMEM;
+
+	unsigned long i = 0;
+	int num_cpus = 0;
+
+	for_each_online_cpu(i) {
+		struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
+		k_info->nr_running[i] = wrr_rq->wrr_nr_running;
+		k_info->total_weight[i] = wrr_rq->total_weight;
+		++num_cpus;
+	}
+	k_info->num_cpus = num_cpus;
+
+	if (copy_to_user(info, k_info, sizeof(struct wrr_info))) {
+		kfree(k_info);
+		return -EFAULT;
+	}
+
+	return num_cpus;
+}
+
+SYSCALL_DEFINE1(set_wrr_weight, int __user, weight)
+{
+	uid_t uid = getuid();
+
+	/* Only root user can change the weight */
+	if (uid != 0)
+		return -EPERM;
+
+	int k_weight;
+	if (copy_from_user(&k_weight, &weight, sizeof(int))
+		return -EFAULT;
+	if (k_weight < 1)
+		return -EINVAL;
+
+	/* @TODO: Change DEFAULT_WRR_WEIGHT here */
+
+	return 0;
 }

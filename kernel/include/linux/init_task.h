@@ -183,7 +183,7 @@ extern struct task_group root_task_group;
 # define INIT_KASAN(tsk)
 #endif
 
-#define BASE_WRR_TIMESLICE (100 * HZ) / 10000
+#define BASE_WRR_TIMESLICE (10 * HZ) / 1000
 #define DEFAULT_WRR_WEIGHT 10
 #define DEFAULT_WRR_TIMESLICE (100 * HZ) / 1000
 
