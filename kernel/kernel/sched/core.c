@@ -74,7 +74,6 @@
 #include <linux/binfmts.h>
 #include <linux/context_tracking.h>
 #include <linux/compiler.h>
-#include <linux/wrr_info.h>
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
@@ -90,6 +89,11 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
+
+/*
+ * for check root user
+ */
+#include <linux/uidgid.h>
 
 DEFINE_MUTEX(sched_domains_mutex);
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
@@ -8697,47 +8701,55 @@ void dump_cpu_task(int cpu)
 	sched_show_task(cpu_curr(cpu));
 }
 
+#define MAX_CPUS 6
+struct wrr_info {
+	int num_cpus;
+	int nr_running[MAX_CPUS];
+	int total_weight[MAX_CPUS];
+};
+
 SYSCALL_DEFINE1(get_wrr_info, struct wrr_info __user *, info)
 {
-	struct wrr_info *k_info;
-	unsigned long i = 0;
-	int num_cpus = 0;
+        struct wrr_info kinfo;
+        int i;
 
-	k_info = kmalloc(sizeof(struct wrr_info), GFP_KERNEL);
-	if (!k_info)
-		return -ENOMEM;
-
-
-	for_each_online_cpu(i) {
-		struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
-		k_info->nr_running[i] = wrr_rq->wrr_nr_running;
-		k_info->total_weight[i] = wrr_rq->total_weight;
-		++num_cpus;
-	}
-	k_info->num_cpus = num_cpus;
-
-	if (copy_to_user(info, k_info, sizeof(struct wrr_info))) {
-		kfree(k_info);
+        kinfo.num_cpus = 0;
+        rcu_read_lock();
+        for_each_online_cpu(i) {
+            struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
+            kinfo.nr_running[kinfo.num_cpus] = wrr_rq->wrr_nr_running;
+            kinfo.total_weight[kinfo.num_cpus] = wrr_rq->total_weight;
+            kinfo.num_cpus++;
+        }
+        rcu_read_unlock();
+        if (copy_to_user(info, &kinfo, sizeof(struct wrr_info)))
 		return -EFAULT;
-	}
-
-	return num_cpus;
+        return 0;
 }
 
-SYSCALL_DEFINE1(set_wrr_weight, int __user, weight)
+SYSCALL_DEFINE1(set_wrr_weight, int, weight)
 {
-	int k_weight;
+	unsigned long flags;
+	struct rq *rq;
+	int curr_weight;
 
-	/* Only root user can change the weight */
-	if (current_cred()->uid.val != 0)
-		return -EPERM;
-
-	if (copy_from_user(&k_weight, &weight, sizeof(int)))
+	struct task_struct *p = current;
+	if (!uid_eq(current_uid(), GLOBAL_ROOT_UID))
+		return -EACCES;
+	if (weight < 1)
 		return -EFAULT;
-	if (k_weight < 1)
-		return -EINVAL;
+	/*
+	 *  important lock
+	 */
+	rq = task_rq_lock(p, &flags);
 
-	/* @TODO: Change DEFAULT_WRR_WEIGHT here */
+	curr_weight = p->wrr.wrr_weight;
+	p->wrr.wrr_weight = weight;
+	rq->wrr.total_weight += weight - curr_weight;
+	printk("set success");
 
+
+	task_rq_unlock(rq, p, &flags);
 	return 0;
+
 }
