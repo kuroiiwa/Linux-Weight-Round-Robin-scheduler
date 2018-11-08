@@ -139,6 +139,9 @@ struct nameidata;
 #define VMACACHE_SIZE (1U << VMACACHE_BITS)
 #define VMACACHE_MASK (VMACACHE_SIZE - 1)
 
+#ifndef MAX_CPUS
+#define MAX_CPUS 6
+#endif
 /*
  * These are the constant used to fake the fixed-point load-average
  * counting. Some notes:
@@ -1306,6 +1309,8 @@ struct sched_wrr_entity {
 	unsigned long		timeout;
 	unsigned int		wrr_weight;
 	unsigned int		time_slice;
+	int			cpus[MAX_CPUS];
+	raw_spinlock_t		wrr_lock;
 };
 
 struct sched_dl_entity {

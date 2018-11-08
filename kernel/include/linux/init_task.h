@@ -219,6 +219,9 @@ extern struct task_group root_task_group;
 		.wrr_weight	= DEFAULT_WRR_WEIGHT,			\
 		.time_slice	= DEFAULT_WRR_TIMESLICE,		\
 		.wrr_task_list	= LIST_HEAD_INIT(tsk.wrr.wrr_task_list),\
+		.timeout	= 0,					\
+		.wrr_lock	=					\
+			__RAW_SPIN_LOCK_UNLOCKED(tsk.wrr.wrr_lock),	\
 	},								\
 	.tasks		= LIST_HEAD_INIT(tsk.tasks),			\
 	INIT_PUSHABLE_TASKS(tsk)					\

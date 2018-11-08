@@ -85,6 +85,7 @@ static void update_curr_wrr(struct rq *rq)
 enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 {
 	struct sched_wrr_entity *wrr_se = &p->wrr;
+	int cpu;
 
 	if (flags & ENQUEUE_WAKEUP)
 		wrr_se->timeout = 0;
@@ -92,15 +93,24 @@ enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	if (!list_empty(&wrr_se->wrr_task_list))
 		return;
 	enqueue_wrr_entity(rq, wrr_se, flags & ENQUEUE_HEAD);
+	raw_spin_lock(&p->group_leader->wrr.wrr_lock);
+	cpu = rq->cpu;
+	p->group_leader->wrr.cpus[cpu]++;
+	raw_spin_unlock(&p->group_leader->wrr.wrr_lock);
 	add_nr_running(rq, 1);
 }
 
 static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 {
 	struct sched_wrr_entity *wrr_se = &p->wrr;
+	int cpu;
 
 	update_curr_wrr(rq);
 	dequeue_wrr_entity(rq, wrr_se);
+	raw_spin_lock(&p->group_leader->wrr.wrr_lock);
+	cpu = rq->cpu;
+	p->group_leader->wrr.cpus[cpu]--;
+	raw_spin_unlock(&p->group_leader->wrr.wrr_lock);
 	sub_nr_running(rq, 1);
 }
 
@@ -152,6 +162,52 @@ static void put_prev_task_wrr(struct rq *rq, struct task_struct *prev)
 }
 
 #ifdef CONFIG_SMP
+
+static int
+multiple_cpu_exist(int min_cpu, int min_cpu_weight, int *same_cpus)
+{
+	int i;
+	int multiple = 0;
+
+	/*No need to compare affinity if total_weight == 0*/
+	if (min_cpu_weight == 0)
+		return multiple;
+	for_each_possible_cpu(i) {
+		struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
+
+		if (min_cpu == i)
+			continue;
+
+		if (wrr_rq->total_weight == min_cpu_weight) {
+			same_cpus[i] = 1;
+			multiple = 1;
+		}
+	}
+	return multiple;
+}
+
+static int
+affinity_cpu(int *same_cpus, struct task_struct *p)
+{
+	struct sched_wrr_entity *gl_se = &p->group_leader->wrr;
+	int min_cpu, affinity, i;
+
+	raw_spin_lock(&gl_se->wrr_lock);
+	affinity = 0;
+	for (i = 0; i < MAX_CPUS; i++) {
+		/*Compare cpus with same weight*/
+		if (same_cpus[i]) {
+			/*Find minimal affinity (might be the same)*/
+			if (affinity <= gl_se->cpus[i]) {
+				affinity = gl_se->cpus[i];
+				min_cpu = i;
+			}
+		}
+	}
+	raw_spin_unlock(&gl_se->wrr_lock);
+	return min_cpu;
+}
+
 	static int
 select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 {
@@ -159,6 +215,7 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 	int min_cpu;
 	int min_cpu_weight;
 	int this_cpu_weight;
+	int same_cpus[MAX_CPUS];
 
 	rcu_read_lock();
 
@@ -176,6 +233,10 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 			min_cpu_weight = this_cpu_weight;
 			min_cpu = i;
 		}
+	}
+
+	if (multiple_cpu_exist(min_cpu, min_cpu_weight, same_cpus)) {
+		min_cpu = affinity_cpu(same_cpus, p);
 	}
 	rcu_read_unlock();
 
@@ -281,22 +342,22 @@ void wrr_pull_task(int dst_cpu)
 
 	src_cpu = -1;
 	max_wrr_weight = 0;
+	rcu_read_lock();
 	for_each_possible_cpu(i) {
 		if (i == dst_cpu)
 			continue;
 
 		src_rq = cpu_rq(i);
-		double_rq_lock(dst_rq, src_rq);
-		if (src_rq->wrr.wrr_nr_running <= 1) {
-			double_rq_unlock(dst_rq, src_rq);
+
+		if (src_rq->wrr.wrr_nr_running <= 1)
 			continue;
-		}
+
 		if (max_wrr_weight < src_rq->wrr.total_weight) {
 			src_cpu = i;
 			max_wrr_weight = src_rq->wrr.total_weight;
 		}
-		double_rq_unlock(dst_rq, src_rq);
 	}
+	rcu_read_unlock();
 	if (src_cpu == -1)
 		return;
 	/*Found the adequate src_cpu*/
