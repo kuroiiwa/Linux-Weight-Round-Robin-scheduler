@@ -235,9 +235,9 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 		}
 	}
 
-	if (multiple_cpu_exist(min_cpu, min_cpu_weight, same_cpus)) {
+	if (multiple_cpu_exist(min_cpu, min_cpu_weight, same_cpus))
 		min_cpu = affinity_cpu(same_cpus, p);
-	}
+
 	rcu_read_unlock();
 
 	return min_cpu;
