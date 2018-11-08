@@ -2154,7 +2154,7 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->wrr.wrr_weight = DEFAULT_WRR_WEIGHT;
 	p->wrr.time_slice = DEFAULT_WRR_TIMESLICE;
 	p->wrr.wrr_lock = __RAW_SPIN_LOCK_UNLOCKED(&p->wrr.wrr_lock);
-	
+
 #ifdef CONFIG_PREEMPT_NOTIFIERS
 	INIT_HLIST_HEAD(&p->preempt_notifiers);
 #endif
