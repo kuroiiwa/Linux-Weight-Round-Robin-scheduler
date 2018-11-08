@@ -17,7 +17,6 @@ gen_cpu_proc: gen_cpu_proc.c
 
 gen_io_proc: gen_io_proc.c
 	$(CC) $(CFLAGS) -o gen_io_proc gen_io_proc.c
-	
 
 clean:
 	rm -f $(EXE)
