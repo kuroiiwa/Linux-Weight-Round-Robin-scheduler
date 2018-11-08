@@ -2,12 +2,15 @@ CC := gcc
 
 ########## YOUR MAKEFILE BELOW ##########
 CFLAGS := -g -O2 -Wall -Werror
-EXE := test1 test_set_weight call_wrr_info gen_cpu_proc gen_io_proc
+EXE := call_wrr_info gen_cpu_proc gen_io_proc weight_test fork_many
 
-all: test_set_weight call_wrr_info gen_cpu_proc gen_io_proc
+all: weight_test fork_many call_wrr_info gen_cpu_proc gen_io_proc
 
-test_set_weight: test_set_weight.c
-	$(CC) $(CFLAGS) -o test_set_weight test_set_weight.c
+weight_test: weight_test.c
+	$(CC) $(CFLAGS) -o weight_test weight_test.c
+
+fork_many: fork_many.c
+	$(CC) $(CFLAGS) -o fork_many fork_many.c
 
 call_wrr_info: call_wrr_info.c
 	$(CC) $(CFLAGS) -o call_wrr_info call_wrr_info.c
