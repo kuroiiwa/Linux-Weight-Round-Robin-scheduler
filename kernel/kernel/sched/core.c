@@ -7592,7 +7592,6 @@ void __init sched_init(void)
 	 * During early bootup we pretend to be a normal task:
 	 */
 	current->sched_class = &wrr_sched_class;
-	//current->sched_class = &wrr_sched_class;
 
 	/*
 	 * Make us the idle thread. Technically, schedule() should not be
