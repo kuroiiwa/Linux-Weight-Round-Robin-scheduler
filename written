@@ -1,0 +1,16 @@
+1. test/gen_cpu_proc.c test/gen_io_proc.c
+
+ gen_cpu_proc.c can fork 5 children for cpu bound.
+ gen_io_proc.c can fork 5 children wait for input.
+
+ Run gen_io_proc first, because it won't affect the performance of
+ computer.
+ Then run gen_cpu_proc, it will print some information about wrr_info,
+ this process will exit in several minites, it depends on your computer.
+
+ What you will see is all the cpu bound and io bound process can run
+ cocurrently.
+
+ If you change the CHILD_PROC to a large number e.g. 100, you can check
+ the log of gen_cpu_proc.c to see the load balancing is worked. processes
+ running on each CPU should be roughly the same.
