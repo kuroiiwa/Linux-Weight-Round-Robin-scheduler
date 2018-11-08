@@ -168,7 +168,7 @@ select_task_rq_wrr(struct task_struct *p, int cpu, int sd_flag, int flags)
 	min_cpu_weight = this_rq()->wrr.total_weight;
 	min_cpu = get_cpu();
 
-	for_each_online_cpu(i) {
+	for_each_possible_cpu(i) {
 		struct wrr_rq *wrr_rq = &cpu_rq(i)->wrr;
 
 		this_cpu_weight = wrr_rq->total_weight;
@@ -281,7 +281,7 @@ void wrr_pull_task(int dst_cpu)
 
 	src_cpu = -1;
 	max_wrr_weight = 0;
-	for_each_online_cpu(i) {
+	for_each_possible_cpu(i) {
 		if (i == dst_cpu)
 			continue;
 
