@@ -36,15 +36,12 @@ void trial_division(int n, int io)
 
 int main(int argc, char **argv)
 {
-	struct wrr_info info;
 	struct sched_param param;
-	pid_t pid;
-	int res;
+	pid_t pid = getpid();
 
 	param.sched_priority = 0;
 
 	syscall(__NR_setscheduler, pid, 7, &param);
-	int weight = atoi(argv[1]);
 
 	for (int i = 0; i < 100; ++i) {
 		pid_t pid = fork();
@@ -53,7 +50,6 @@ int main(int argc, char **argv)
 			return -1;
 
 		if (pid == 0) {
-			syscall(__NR_set_wrr_weight, weight);
 			trial_division(N, 0);
 			exit(0);
 		} else {

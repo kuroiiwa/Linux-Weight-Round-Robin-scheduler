@@ -21,11 +21,17 @@ struct sched_param {
 	int sched_priority;
 };
 
-void find_factors(int n, int io)
+void trial_division(int n, int io)
 {
-	for (int i = 1; i <= n; ++i) {
-		if (n % i == 0 && io)
-			printf("%d", i);
+	int f = 2;
+
+	while (n > 1) {
+		if (n % f == 0) {
+			if (io)
+				printf("%d", f);
+			n /= f;
+		} else
+			f += 1;
 	}
 }
 
@@ -33,15 +39,23 @@ int main(int argc, char **argv)
 {
 	struct wrr_info info;
 	struct sched_param param;
-	pid_t pid;
-	int res;
+	pid_t pid = getpid();
 	int weight = atoi(argv[1]);
+	int res;
 
 	param.sched_priority = 0;
 
 	syscall(__NR_setscheduler, pid, 7, &param);
 	syscall(__NR_set_wrr_weight, weight);
-	find_factors(N, 0);
+	trial_division(N, 0);
 
+	res = syscall(__NR_get_wrr_info, &info);
+	if (!res) {
+		printf("num_cpus: %d\n", info.num_cpus);
+		for (int i = 0; i < info.num_cpus; i++) {
+			printf("CPU_%d: %d %d\n", i, info.nr_running[i],
+					info.total_weight[i]);
+		}
+	}
 	return 0;
 }
