@@ -1,12 +1,20 @@
-1. test/gen_cpu_proc.c test/gen_io_proc.c
+# Test Program
 
- These two tests fork N children to test for both CPU-bound and I/O-bound processes.
+## Test 1
+
+* `test/gen_cpu_proc.c`
+* `test/gen_io_proc.c`
+
+These two tests fork N children to test for both CPU-bound and I/O-bound processes.
  We ran the gen_io_proc test first, and then ran gen_cpu_proc immediately afterwards. 
  Based on the wrr_info outputted (especially when we set CHILD_PROC to a large number),
  we can see that load balancing works correctly, and CPU-bound & IO-bound processes can
  run concurrently.
 
-2. test/fork_many.c test/weight_test.c
+## Test 2
+
+* `test/fork_many.c`
+* `test/weight_test.c`
 
 To test the impact that changing task weights had, we created two tests--fork_many and weight_test.
 
